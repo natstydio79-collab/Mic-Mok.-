@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.RiWT" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/gradient_start</item>
+        <item name="colorPrimaryVariant">@color/gradient_end</item>
+        <item name="colorOnPrimary">@color/white</item>
+        <item name="android:statusBarColor">@color/gradient_start</item>
+    </style>
+</resources>
