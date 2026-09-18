@@ -2,10 +2,13 @@ package com.riwt.messenger
 
 import android.content.Intent
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.View
 import android.widget.EditText
 import android.widget.ImageButton
 import android.widget.TextView
+import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -21,17 +24,13 @@ class MainActivity : AppCompatActivity() {
 
     private var myUid: String = ""
     private var allUsers: Map<String, User> = emptyMap()
+    private var authReady = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         auth = FirebaseAuth.getInstance()
-        myUid = auth.currentUser?.uid ?: run {
-            finish()
-            return
-        }
-
         db = FirebaseDatabase.getInstance(
             "https://riwt-12863-default-rtdb.europe-west1.firebasedatabase.app"
         ).reference
@@ -49,22 +48,18 @@ class MainActivity : AppCompatActivity() {
         recycler.adapter = adapter
 
         findViewById<ImageButton>(R.id.settingsBtn).setOnClickListener {
-            // Простое уведомление — заглушка для настроек
-            android.widget.Toast.makeText(this, "⚙️ Настройки в разработке",
-                android.widget.Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "⚙️ Настройки в разработке", Toast.LENGTH_SHORT).show()
         }
 
-        // Поиск по номеру
         val searchInput = findViewById<EditText>(R.id.searchInput)
-        searchInput.addTextChangedListener(object : android.text.TextWatcher {
-            override fun afterTextChanged(s: android.text.Editable?) {
-                filterAndShow(s?.toString()?.trim() ?: "")
+        searchInput.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
+                if (authReady) filterAndShow(s?.toString()?.trim() ?: "")
             }
             override fun beforeTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
             override fun onTextChanged(s: CharSequence?, a: Int, b: Int, c: Int) {}
         })
 
-        // Статус подключения
         db.child(".info/connected").addValueEventListener(object : ValueEventListener {
             override fun onDataChange(s: DataSnapshot) {
                 val online = s.getValue(Boolean::class.java) == true
@@ -74,7 +69,49 @@ class MainActivity : AppCompatActivity() {
             override fun onCancelled(error: DatabaseError) {}
         })
 
-        loadUsersAndChats()
+        // === Автологин анонимно ===
+        val current = auth.currentUser
+        if (current == null) {
+            auth.signInAnonymously()
+                .addOnSuccessListener { result ->
+                    onLoggedIn(result.user?.uid ?: "")
+                }
+                .addOnFailureListener { e ->
+                    Toast.makeText(this, "Ошибка входа: ${e.message}", Toast.LENGTH_LONG).show()
+                }
+        } else {
+            onLoggedIn(current.uid)
+        }
+    }
+
+    private fun onLoggedIn(uid: String) {
+        myUid = uid
+
+        // Создаём запись пользователя, если ещё нет
+        val userRef = db.child("users").child(uid)
+        userRef.addListenerForSingleValueEvent(object : ValueEventListener {
+            override fun onDataChange(snapshot: DataSnapshot) {
+                if (!snapshot.exists()) {
+                    val data = mapOf(
+                        "phone" to ("anon_" + uid.take(8)),
+                        "displayName" to "Гость",
+                        "about" to "",
+                        "online" to true,
+                        "lastSeen" to System.currentTimeMillis(),
+                        "createdAt" to System.currentTimeMillis()
+                    )
+                    userRef.setValue(data)
+                } else {
+                    userRef.child("online").setValue(true)
+                }
+                authReady = true
+                loadUsersAndChats()
+            }
+            override fun onCancelled(error: DatabaseError) {
+                authReady = true
+                loadUsersAndChats()
+            }
+        })
     }
 
     private fun loadUsersAndChats() {
