@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="gradient_start">#667EEA</color>
+    <color name="gradient_end">#764BA2</color>
+    <color name="bg_light">#F7F8FC</color>
+    <color name="text_dark">#1A1A2E</color>
+    <color name="text_gray">#65676B</color>
+    <color name="text_light">#A0A6B3</color>
+    <color name="bubble_other">#FFFFFF</color>
+    <color name="white">#FFFFFF</color>
+    <color name="red">#E74C3C</color>
+</resources>
